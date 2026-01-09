@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>热量计算器 | 智能饮食助手</title>
+  <meta name="description" content="输入食物、重量和做法，结合千问API估算热量。支持拍照识别。" />
+  <link rel="preconnect" href="https://dashscope.aliyuncs.com" />
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f5f7;
+      --card: #ffffff;
+      --text: #1d1d1f;
+      --muted: #6e6e73;
+      --accent: #0071e3;
+      --shadow: 0 24px 60px rgba(0, 0, 0, 0.08);
+      --radius: 28px;
+      --border: 1px solid rgba(0, 0, 0, 0.06);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: "SF Pro Display", "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 56px 5vw 24px;
+      text-align: center;
+    }
+
+    header h1 {
+      font-size: clamp(2.2rem, 3.8vw, 3.4rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    header p {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 1.05rem;
+    }
+
+    main {
+      display: grid;
+      gap: 28px;
+      padding: 0 5vw 64px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, #ffffff 0%, #f0f4ff 100%);
+      border-radius: var(--radius);
+      padding: clamp(24px, 4vw, 40px);
+      box-shadow: var(--shadow);
+      border: var(--border);
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 24px;
+      align-items: center;
+    }
+
+    .hero .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: rgba(0, 113, 227, 0.1);
+      color: var(--accent);
+      border-radius: 999px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+      width: fit-content;
+    }
+
+    .hero h2 {
+      font-size: clamp(1.8rem, 3vw, 2.6rem);
+      line-height: 1.2;
+      margin-bottom: 12px;
+    }
+
+    .hero p {
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .cta-panel {
+      background: var(--card);
+      padding: 24px;
+      border-radius: 20px;
+      border: var(--border);
+      display: grid;
+      gap: 16px;
+    }
+
+    .cta-panel strong {
+      font-size: 1.1rem;
+    }
+
+    .cta-panel ul {
+      list-style: none;
+      display: grid;
+      gap: 10px;
+      color: var(--muted);
+    }
+
+    .calculator {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: clamp(24px, 4vw, 40px);
+      box-shadow: var(--shadow);
+      border: var(--border);
+      display: grid;
+      gap: 24px;
+    }
+
+    .section-title {
+      font-size: 1.4rem;
+      font-weight: 600;
+    }
+
+    .grid {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+
+    label {
+      display: grid;
+      gap: 8px;
+      font-size: 0.95rem;
+      color: var(--muted);
+    }
+
+    input,
+    select,
+    textarea {
+      border-radius: 16px;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+      padding: 12px 16px;
+      font-size: 1rem;
+      background: #fff;
+      outline: none;
+      transition: border 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: rgba(0, 113, 227, 0.7);
+      box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.1);
+    }
+
+    textarea {
+      min-height: 110px;
+      resize: vertical;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 12px 24px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 12px 30px rgba(0, 113, 227, 0.35);
+    }
+
+    button.secondary {
+      background: #f0f4ff;
+      color: var(--accent);
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    .panel-row {
+      display: grid;
+      gap: 24px;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    }
+
+    .camera-panel,
+    .result-panel {
+      background: #f7f7fb;
+      border-radius: 22px;
+      padding: 20px;
+      border: var(--border);
+      display: grid;
+      gap: 16px;
+    }
+
+    .camera-panel video,
+    .camera-panel img {
+      width: 100%;
+      border-radius: 16px;
+      background: #000;
+      min-height: 200px;
+      object-fit: cover;
+    }
+
+    .status {
+      font-size: 0.95rem;
+      color: var(--muted);
+    }
+
+    .result-panel h3 {
+      font-size: 1.2rem;
+    }
+
+    .result-output {
+      background: #fff;
+      border-radius: 18px;
+      padding: 16px;
+      min-height: 160px;
+      color: var(--text);
+      line-height: 1.6;
+      border: var(--border);
+      white-space: pre-wrap;
+    }
+
+    .footer {
+      text-align: center;
+      padding: 40px 5vw 60px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 700px) {
+      header {
+        padding-top: 36px;
+      }
+
+      .actions {
+        flex-direction: column;
+      }
+
+      button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>热量计算器</h1>
+    <p>输入食物、重量和做法，或拍照识别，快速估算每餐热量。</p>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div>
+        <span class="badge">AI营养分析 · 千问API</span>
+        <h2>简洁高端的热量洞察，随时随地掌握餐盘。</h2>
+        <p>为电脑和手机优化的体验，支持输入描述或拍照，让AI帮助你估算能量摄入与营养结构。</p>
+      </div>
+      <div class="cta-panel">
+        <strong>开始前请准备</strong>
+        <ul>
+          <li>✅ 千问 API Key（本地存储，不会上传至GitHub）</li>
+          <li>✅ 食物名称、重量、做法</li>
+          <li>✅ 可选：拍照识别食物</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="calculator">
+      <div class="section-title">热量计算输入</div>
+      <div class="grid">
+        <label>
+          食物名称
+          <input type="text" id="foodName" placeholder="如：烤鸡胸肉" />
+        </label>
+        <label>
+          重量 (克)
+          <input type="number" id="foodWeight" placeholder="如：200" min="1" />
+        </label>
+        <label>
+          做法
+          <select id="cookMethod">
+            <option value="清蒸">清蒸</option>
+            <option value="烤制">烤制</option>
+            <option value="煎炒">煎炒</option>
+            <option value="水煮">水煮</option>
+            <option value="油炸">油炸</option>
+            <option value="炖煮">炖煮</option>
+            <option value="生食">生食</option>
+            <option value="其他">其他</option>
+          </select>
+        </label>
+      </div>
+      <label>
+        额外描述（可选）
+        <textarea id="notes" placeholder="例如：少油、加芝士、配菜为西兰花"></textarea>
+      </label>
+
+      <div class="actions">
+        <button class="primary" id="analyzeBtn">计算热量</button>
+        <button class="secondary" id="saveKeyBtn">设置 API Key</button>
+      </div>
+
+      <div class="panel-row">
+        <div class="camera-panel">
+          <div class="section-title">拍照识别</div>
+          <video id="camera" autoplay playsinline></video>
+          <img id="snapshot" alt="拍照预览" hidden />
+          <div class="actions">
+            <button class="secondary" id="startCameraBtn">打开摄像头</button>
+            <button class="secondary" id="captureBtn" disabled>拍照识别</button>
+          </div>
+          <p class="status" id="cameraStatus">摄像头未开启</p>
+        </div>
+        <div class="result-panel">
+          <h3>分析结果</h3>
+          <div class="result-output" id="resultOutput">输入信息或拍照后，AI 会给出热量估算与营养建议。</div>
+          <p class="status" id="resultStatus">尚未进行分析。</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="footer">© 2024 Calorie Insight · 简洁、克制、优雅</div>
+
+  <script>
+    const foodName = document.getElementById('foodName');
+    const foodWeight = document.getElementById('foodWeight');
+    const cookMethod = document.getElementById('cookMethod');
+    const notes = document.getElementById('notes');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const saveKeyBtn = document.getElementById('saveKeyBtn');
+    const resultOutput = document.getElementById('resultOutput');
+    const resultStatus = document.getElementById('resultStatus');
+    const camera = document.getElementById('camera');
+    const snapshot = document.getElementById('snapshot');
+    const startCameraBtn = document.getElementById('startCameraBtn');
+    const captureBtn = document.getElementById('captureBtn');
+    const cameraStatus = document.getElementById('cameraStatus');
+
+    let mediaStream = null;
+
+    const API_ENDPOINT = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation';
+
+    function getApiKey() {
+      return localStorage.getItem('qwen_api_key') || '';
+    }
+
+    function setApiKey() {
+      const current = getApiKey();
+      const input = window.prompt('请输入你的千问 API Key（仅保存在本地浏览器）', current);
+      if (input) {
+        localStorage.setItem('qwen_api_key', input.trim());
+        alert('API Key 已保存到本地浏览器。');
+      }
+    }
+
+    async function callQwen(prompt, imageBase64 = null) {
+      const apiKey = getApiKey();
+      if (!apiKey) {
+        throw new Error('请先设置千问 API Key。');
+      }
+
+      const payload = {
+        model: 'qwen-vl-plus',
+        input: {
+          messages: [
+            {
+              role: 'user',
+              content: imageBase64
+                ? [
+                    { type: 'text', text: prompt },
+                    { type: 'image_url', image_url: { url: imageBase64 } }
+                  ]
+                : [{ type: 'text', text: prompt }]
+            }
+          ]
+        }
+      };
+
+      const response = await fetch(API_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API 请求失败: ${response.status} ${errorText}`);
+      }
+
+      const data = await response.json();
+      const content = data?.output?.choices?.[0]?.message?.content;
+      return Array.isArray(content) ? content.map((item) => item.text || '').join('') : content;
+    }
+
+    function buildTextPrompt() {
+      return `请根据以下信息估算这顿饭的热量，并给出宏量营养素的参考比例（蛋白质、碳水、脂肪），最后给出简短饮食建议。\n\n食物名称：${foodName.value || '未填写'}\n重量：${foodWeight.value || '未填写'} 克\n做法：${cookMethod.value || '未填写'}\n额外描述：${notes.value || '无'}`;
+    }
+
+    async function analyzeText() {
+      resultStatus.textContent = '正在分析，请稍候...';
+      resultOutput.textContent = 'AI 正在计算热量与营养信息。';
+      try {
+        const content = await callQwen(buildTextPrompt());
+        resultOutput.textContent = content || '未返回内容，请稍后重试。';
+        resultStatus.textContent = '分析完成。';
+      } catch (error) {
+        resultOutput.textContent = error.message;
+        resultStatus.textContent = '分析失败。';
+      }
+    }
+
+    async function startCamera() {
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        camera.srcObject = mediaStream;
+        cameraStatus.textContent = '摄像头已开启。';
+        captureBtn.disabled = false;
+      } catch (error) {
+        cameraStatus.textContent = '无法访问摄像头，请检查浏览器权限。';
+      }
+    }
+
+    function captureImage() {
+      if (!mediaStream) return null;
+      const canvas = document.createElement('canvas');
+      canvas.width = camera.videoWidth || 640;
+      canvas.height = camera.videoHeight || 480;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(camera, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg');
+      snapshot.src = dataUrl;
+      snapshot.hidden = false;
+      camera.hidden = true;
+      return dataUrl;
+    }
+
+    async function analyzeImage() {
+      const image = captureImage();
+      if (!image) return;
+      resultStatus.textContent = '正在识别图片...';
+      resultOutput.textContent = 'AI 正在识别食物并估算热量。';
+      try {
+        const prompt = '请识别图片中的食物，并估算热量和宏量营养素（蛋白质、碳水、脂肪）比例，最后给出简短饮食建议。';
+        const content = await callQwen(prompt, image);
+        resultOutput.textContent = content || '未返回内容，请稍后重试。';
+        resultStatus.textContent = '识别完成。';
+      } catch (error) {
+        resultOutput.textContent = error.message;
+        resultStatus.textContent = '识别失败。';
+      }
+    }
+
+    analyzeBtn.addEventListener('click', analyzeText);
+    saveKeyBtn.addEventListener('click', setApiKey);
+    startCameraBtn.addEventListener('click', startCamera);
+    captureBtn.addEventListener('click', analyzeImage);
+  </script>
+</body>
+</html>
